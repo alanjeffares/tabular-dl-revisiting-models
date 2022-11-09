@@ -582,7 +582,9 @@ if __name__ == "__main__":
                 lambda x: (apply_model(lib.TRAIN, x), Y_device[lib.TRAIN][x]),
                 batch_idx,
                 chunk_size or batch_size,
-                lambda x: apply_attr_loss(lib.TRAIN, x)
+                lambda x: apply_attr_loss(lib.TRAIN, x),
+                args['training']['sparsity'],
+                args['training']['correlation']
             )
             epoch_losses.append(loss.detach())
             if new_chunk_size and new_chunk_size < (chunk_size or batch_size):

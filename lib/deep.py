@@ -407,18 +407,21 @@ def train_with_auto_virtual_batch_tangos(
     step,
     batch,
     chunk_size: int,
-    step_reg
+    step_reg,
+    sparsity: float,
+    correlation: float
 ) -> ty.Tuple[Tensor, int]:
     batch_size = len(batch)
     random_state = zero.get_random_state()
     while chunk_size != 0:
+
         try:
             zero.set_random_state(random_state)
             optimizer.zero_grad()
             if batch_size <= chunk_size:
                 loss = loss_fn(*step(batch))
                 sparsity_loss, correlation_loss = step_reg(batch)
-                reg_loss = sparsity_loss + correlation_loss  # todo: add weights
+                reg_loss = sparsity*sparsity_loss + correlation*correlation_loss
                 (loss + reg_loss).backward()
                 # loss.backward()
             else:
@@ -426,12 +429,9 @@ def train_with_auto_virtual_batch_tangos(
                 for chunk in zero.iter_batches(batch, chunk_size):
                     chunk_loss = loss_fn(*step(chunk))
                     chunk_loss = chunk_loss * (len(chunk) / batch_size)
-                    test = step(chunk)
-                    print(test)
-                    print(len(test))
-                    x, _ = step(chunk)
-                    sparsity_loss, correlation_loss = attr_loss(forward_fn, x)
-                    reg_loss = sparsity_loss + correlation_loss  # todo: add weights
+                    sparsity_loss, correlation_loss = step_reg(batch)
+                    reg_loss = sparsity*sparsity_loss + correlation*correlation_loss
+                    reg_loss = reg_loss * (len(chunk) / batch_size)
                     (chunk_loss + reg_loss).backward()
                     if loss is None:
                         loss = chunk_loss.detach()
