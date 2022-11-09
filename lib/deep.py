@@ -12,6 +12,10 @@ import torch.optim as optim
 import zero
 from torch import Tensor
 
+# from functorch import jacrev
+# from functorch import vmap
+# import numpy as np
+
 
 class IndexLoader:
     def __init__(
@@ -340,6 +344,95 @@ def train_with_auto_virtual_batch(
                     chunk_loss = loss_fn(*step(chunk))
                     chunk_loss = chunk_loss * (len(chunk) / batch_size)
                     chunk_loss.backward()
+                    if loss is None:
+                        loss = chunk_loss.detach()
+                    else:
+                        loss += chunk_loss.detach()
+        except RuntimeError as err:
+            if not is_oom_exception(err):
+                raise
+            chunk_size //= 2
+        else:
+            break
+    if not chunk_size:
+        raise RuntimeError('Not enough memory even for batch_size=1')
+    optimizer.step()
+    return loss, chunk_size  # type: ignore[code]
+
+
+# def attr_loss(forward_func, data_input, device='cpu', subsample=50):
+#     ########## UPDATE functools ############
+#     batch_size = data_input.shape[0]
+#
+#     def test(input_):
+#         _, h_out = forward_func(input_)
+#         return h_out
+#
+#     data_input = data_input.clone().requires_grad_(True)
+#     jacobian = vmap(jacrev(test))(data_input)
+#     neuron_attr = jacobian.swapaxes(0, 1)
+#     h_dim = neuron_attr.shape[0]
+#
+#     if len(neuron_attr.shape) > 3:
+#         # h_dim x batch_size x features
+#         neuron_attr = neuron_attr.flatten(start_dim=2)
+#
+#     sparsity_loss = torch.norm(neuron_attr, p=1) / (batch_size * h_dim * neuron_attr.shape[2])
+#
+#     cos = nn.CosineSimilarity(dim=1, eps=1e-6)
+#     correlation_loss = torch.tensor(0., requires_grad=True).to(device)
+#
+#     if subsample > 0 and subsample < h_dim * (h_dim - 1) / 2:
+#         tensor_pairs = [list(np.random.choice(h_dim, size=(2), replace=False)) for _ in range(subsample)]
+#         for tensor_pair in tensor_pairs:
+#             pairwise_corr = cos(neuron_attr[tensor_pair[0], :, :], neuron_attr[tensor_pair[1], :, :]).norm(p=1)
+#             correlation_loss = correlation_loss + pairwise_corr
+#
+#         correlation_loss = correlation_loss / (batch_size * subsample)
+#
+#     else:
+#         for neuron_i in range(1, h_dim):
+#             for neuron_j in range(0, neuron_i):
+#                 pairwise_corr = cos(neuron_attr[neuron_i, :, :], neuron_attr[neuron_j, :, :]).norm(p=1)
+#                 correlation_loss = correlation_loss + pairwise_corr
+#         num_pairs = h_dim * (h_dim - 1) / 2
+#         correlation_loss = correlation_loss / (batch_size * num_pairs)
+#
+#     return sparsity_loss, correlation_loss
+
+
+def train_with_auto_virtual_batch_tangos(
+    optimizer,
+    loss_fn,
+    step,
+    batch,
+    chunk_size: int,
+    step_reg
+) -> ty.Tuple[Tensor, int]:
+    batch_size = len(batch)
+    random_state = zero.get_random_state()
+    while chunk_size != 0:
+        try:
+            zero.set_random_state(random_state)
+            optimizer.zero_grad()
+            if batch_size <= chunk_size:
+                loss = loss_fn(*step(batch))
+                sparsity_loss, correlation_loss = step_reg(batch)
+                reg_loss = sparsity_loss + correlation_loss  # todo: add weights
+                (loss + reg_loss).backward()
+                # loss.backward()
+            else:
+                loss = None
+                for chunk in zero.iter_batches(batch, chunk_size):
+                    chunk_loss = loss_fn(*step(chunk))
+                    chunk_loss = chunk_loss * (len(chunk) / batch_size)
+                    test = step(chunk)
+                    print(test)
+                    print(len(test))
+                    x, _ = step(chunk)
+                    sparsity_loss, correlation_loss = attr_loss(forward_fn, x)
+                    reg_loss = sparsity_loss + correlation_loss  # todo: add weights
+                    (chunk_loss + reg_loss).backward()
                     if loss is None:
                         loss = chunk_loss.detach()
                     else:
