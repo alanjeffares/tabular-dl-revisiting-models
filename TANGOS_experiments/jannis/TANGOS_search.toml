@@ -1,0 +1,40 @@
+program = 'bin/TANGOS.py'
+
+[base_config]
+seed = 0
+
+    [base_config.data]
+    normalization = 'quantile'
+    path = 'data/jannis'
+    y_policy = 'mean_std'
+
+    [base_config.model]
+    activation = 'reglu'
+    initialization = 'kaiming'
+    n_heads = 8
+    prenormalization = true
+    attention_dropout = 0.2
+    d_ffn_factor = 1.333333333333333
+    d_token = 40
+    ffn_dropout = 0.1
+    n_layers = 3
+    residual_dropout = 0.0
+
+    [base_config.training]
+    batch_size = 256
+    eval_batch_size = 8192
+    n_epochs = 1000000000
+    optimizer = 'adamw'
+    patience = 16
+    lr = 1e-04
+    weight_decay = 1e-05
+
+[optimization.options]
+n_trials = 100
+
+[optimization.sampler]
+seed = 0
+
+[optimization.space.training]
+sparsity = ['loguniform', 0.01, 100]
+correlation = ['loguniform', 0.0001, 1]
