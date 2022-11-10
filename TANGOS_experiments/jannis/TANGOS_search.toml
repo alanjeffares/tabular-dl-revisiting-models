@@ -6,18 +6,17 @@ seed = 0
     [base_config.data]
     normalization = 'quantile'
     path = 'data/jannis'
-    y_policy = 'mean_std'
 
     [base_config.model]
     activation = 'reglu'
     initialization = 'kaiming'
-    n_heads = 8
+    n_heads = 4
     prenormalization = true
     attention_dropout = 0.2
     d_ffn_factor = 1.333333333333333
-    d_token = 40
+    d_token = 32
     ffn_dropout = 0.1
-    n_layers = 3
+    n_layers = 2
     residual_dropout = 0.0
 
     [base_config.training]
@@ -30,7 +29,7 @@ seed = 0
     weight_decay = 1e-05
 
 [optimization.options]
-n_trials = 100
+n_trials = 10
 
 [optimization.sampler]
 seed = 0

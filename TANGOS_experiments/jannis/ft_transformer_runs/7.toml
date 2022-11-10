@@ -1,0 +1,27 @@
+seed = 7
+
+[data]
+normalization = 'quantile'
+path = 'data/jannis'
+
+[model]
+activation = 'reglu'
+attention_dropout = 0.2
+d_ffn_factor = 1.333333333333333
+d_token = 32
+ffn_dropout = 0.1
+initialization = 'kaiming'
+n_heads = 4
+n_layers = 2
+prenormalization = true
+residual_dropout = 0.0
+
+[training]
+batch_size = 256
+eval_batch_size = 8192
+lr = 1e-04
+lr_n_decays = 0
+n_epochs = 1000000000
+optimizer = 'adamw'
+patience = 16
+weight_decay = 1e-05
